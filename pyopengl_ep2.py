@@ -1,6 +1,7 @@
 import glfw
 from OpenGL.GL import *
 import numpy as np
+from math import sin, cos
 
 class Window:
     def __init__(self, width:int, height:int, title:str):
@@ -41,7 +42,16 @@ class Window:
 
             glClear(GL_COLOR_BUFFER_BIT)
 
+            ct = glfw.get_time()
+
+            glLoadIdentity()
+            glScale(abs(sin(ct)), abs(sin(ct)), 1)
+            glRotatef(sin(ct) * 45, 0, 0, 1)
+            glTranslatef(sin(ct), cos(ct), 0)
+            
             glDrawArrays(GL_TRIANGLES, 0, 3)
+            
+            # glRotate(2, 0, 1, 0)
 
             glfw.swap_buffers(self._win)
 
