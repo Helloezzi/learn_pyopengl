@@ -3,6 +3,7 @@ import glfw
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
+import pyrr 
 
 vertex_src = """
 # version 330
@@ -10,11 +11,13 @@ vertex_src = """
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec3 a_color;
 
+uniform mat4 rotation;
+
 out vec3 v_color;
 
 void main()
 {
-    gl_Position = vec4(a_position, 1.0);
+    gl_Position = rotation * vec4(a_position, 1.0);
     v_color = a_color;
 }
 """
@@ -46,15 +49,6 @@ if not window:
 glfw.set_window_pos(window, 400, 200)
 glfw.set_window_size_callback(window, window_resize)
 glfw.make_context_current(window)
-
-"""
- vertices = [-0.5, -0.5, 0.0,
-            0.5, -0.5, 0.0,
-            0.0,  0.5, 0.0,
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0]
-"""
 
 vertices = [-0.5, -0.5, 0.5, 1.0, 0.0, 0.0,
             0.5, -0.5, 0.5, 0.0, 1.0, 0.0,
@@ -96,11 +90,21 @@ glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 24, ctypes.c_void_p(12))
 
 glUseProgram(shader)
 glClearColor(0.5, 0.5, 0.5, 1)
+glEnable(GL_DEPTH_TEST)
+
+rotation_loc = glGetUniformLocation(shader, "rotation")
 
 while not glfw.window_should_close(window):
     glfw.poll_events()
 
-    glClear(GL_COLOR_BUFFER_BIT)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+    rot_x = pyrr.Matrix44.from_x_rotation(0.5 * glfw.get_time())
+    rot_y = pyrr.Matrix44.from_y_rotation(0.8 * glfw.get_time())
+
+    # glUniformMatrix4fv(rotation_loc, 1, GL_FALSE, rot_x * rot_y)
+    # glUniformMatrix4fv(rotation_loc, 1, GL_FALSE, rot_x @ rot_y)
+    glUniformMatrix4fv(rotation_loc, 1, GL_FALSE, pyrr.matrix44.multiply(rot_x, rot_y))
 
     #glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
     glDrawElements(GL_TRIANGLES, len(indices), GL_UNSIGNED_INT, None)
