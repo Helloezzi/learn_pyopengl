@@ -18,4 +18,5 @@
 
 ### references
 https://www.youtube.com/channel/UC4L3JyeL7TXQM1f3yD6iVQQ/videos
-
+https://learnopengl.com/
+ 
