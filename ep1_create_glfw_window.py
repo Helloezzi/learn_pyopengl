@@ -26,4 +26,3 @@ class Window:
 if __name__ == "__main__":
     win = Window(1280, 720, "My Opengl window")
     win.main_loop()
-
