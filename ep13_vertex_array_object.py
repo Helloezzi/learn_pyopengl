@@ -247,7 +247,9 @@ while not glfw.window_should_close(window):
 
     model = pyrr.matrix44.multiply(rot_y, triangle_pos)
 
+    # switch 
     glUniform1i(switcher_loc, 1)
+
     glBindVertexArray(triangle_VAO)        
     glUniformMatrix4fv(model_loc, 1, GL_FALSE, model)
     glDrawArrays(GL_TRIANGLES, 0, 3)
