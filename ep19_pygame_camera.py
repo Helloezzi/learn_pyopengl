@@ -1,43 +1,20 @@
-from math import floor
-import glfw
+import os
+os.environ['SDL_VIDEO_WINDOW_POS'] = '400,200'
+
+import pygame
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import pyrr
-from TextureLoader import load_texture
+from TextureLoader import load_texture, load_texture_pygame
 from ObjLoader import ObjLoader
 
 from camera import Camera
 
+# Camera setting
 cam = Camera()
 WIDTH, HEIGHT = 1280, 720
 lastX, lastY = WIDTH /2 , HEIGHT /2 
 first_mouse = True
-
-# the mouse position callback function
-def mouse_look_clib(window, xpos, ypos):
-    global lastX, lastY
-
-    if first_mouse:
-        lastX = xpos
-        lastY = ypos
-
-    xoffset = xpos - lastX
-    yoffset = lastY - ypos
-
-    lastX = xpos
-    lastY = ypos
-
-    cam.process_mouse_movement(xoffset, yoffset)
-
-# the mouse enter callback function
-def mouse_enter_clib(window, entered):
-    global first_mouse
-
-    if entered:
-        first_mouse = False
-    else:
-        first_mouse = True
-
 
 vertex_src = """
 # version 330
@@ -74,41 +51,30 @@ void main()
 }
 """
 
+def mouse_look(xpos, ypos):
+    global first_mouse, lastX, lastY
 
-# glfw callback functions
-def window_resize(window, width, height):
-    glViewport(0, 0, width, height)
-    projection = pyrr.matrix44.create_perspective_projection_matrix(45, width / height, 0.1, 100)
-    glUniformMatrix4fv(proj_loc, 1, GL_FALSE, projection)
+    if first_mouse:
+        lastX = xpos
+        lastY = ypos
+        first_mouse = False
 
+    xoffset = xpos - lastX
+    yoffset = lastY - ypos
+    
+    lastX = xpos
+    lastY = ypos
+    
+    cam.process_mouse_movement(xoffset, yoffset)
 
-# initializing glfw library
-if not glfw.init():
-    raise Exception("glfw can not be initialized!")
-
-# creating the window
-window = glfw.create_window(WIDTH, HEIGHT, "My OpenGL window", None, None)
-
-# check if window was created
-if not window:
-    glfw.terminate()
-    raise Exception("glfw window can not be created!")
-
-# set window's position
-glfw.set_window_pos(window, 400, 200)
-
-# set the callback function for window resize
-glfw.set_window_size_callback(window, window_resize)
-# set the mouse position callback
-glfw.set_cursor_pos_callback(window, mouse_look_clib)
-# set the mouse enter callback
-glfw.set_cursor_enter_callback(window, mouse_enter_clib)
-
-# make the context current
-glfw.make_context_current(window)
+# pygame init
+pygame.init()
+pygame.display.set_mode((WIDTH, HEIGHT), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE) 
+pygame.mouse.set_visible(False)
+pygame.event.set_grab(True)
 
 # load here the 3d meshes
-chibi_indices, chibi_buffer = ObjLoader.load_model("meshes/cube.obj")
+cube_indices, cube_buffer = ObjLoader.load_model("meshes/cube.obj", False)
 monkey_indices, monkey_buffer = ObjLoader.load_model("meshes/monkey.obj")
 floor_indices, floor_buffer = ObjLoader.load_model("meshes/floor.obj")
 
@@ -117,24 +83,28 @@ shader = compileProgram(compileShader(vertex_src, GL_VERTEX_SHADER), compileShad
 # VAO & VBO
 VAO = glGenVertexArrays(3)
 VBO = glGenBuffers(3)
+EBO = glGenBuffers(1)
 
-# Chibi VAO
+# cube VAO
 glBindVertexArray(VAO[0])
-# Chibi Vertex Buffer Object
+# cube Vertex Buffer Object
 glBindBuffer(GL_ARRAY_BUFFER, VBO[0])
-glBufferData(GL_ARRAY_BUFFER, chibi_buffer.nbytes, chibi_buffer, GL_STATIC_DRAW)
+glBufferData(GL_ARRAY_BUFFER, cube_buffer.nbytes, cube_buffer, GL_STATIC_DRAW)
 
-# chibi vertices
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO)
+glBufferData(GL_ELEMENT_ARRAY_BUFFER, cube_indices.nbytes, cube_indices, GL_STATIC_DRAW)
+
+# cube vertices
 glEnableVertexAttribArray(0)
-glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, chibi_buffer.itemsize * 8, ctypes.c_void_p(0))
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, cube_buffer.itemsize * 8, ctypes.c_void_p(0))
 
-# chibi texutres
+# cube texutres
 glEnableVertexAttribArray(1)
-glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, chibi_buffer.itemsize * 8, ctypes.c_void_p(12))
+glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, cube_buffer.itemsize * 8, ctypes.c_void_p(12))
 
-# chibi normals
+# cube normals
 glEnableVertexAttribArray(2)
-glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, chibi_buffer.itemsize * 8, ctypes.c_void_p(20))
+glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, cube_buffer.itemsize * 8, ctypes.c_void_p(20))
 
 # Monkey VAO
 glBindVertexArray(VAO[1])
@@ -169,9 +139,9 @@ glEnableVertexAttribArray(2)
 
 
 textures = glGenTextures(3)
-load_texture("meshes/cube.jpg", textures[0])
-load_texture("meshes/monkey.jpg", textures[1])
-load_texture("meshes/floor.jpg", textures[2])
+load_texture_pygame("meshes/cube.jpg", textures[0])
+load_texture_pygame("meshes/monkey.jpg", textures[1])
+load_texture_pygame("meshes/floor.jpg", textures[2])
 
 glUseProgram(shader)
 glClearColor(0, 0.1, 0.1, 1)
@@ -180,37 +150,66 @@ glEnable(GL_BLEND)
 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
 projection = pyrr.matrix44.create_perspective_projection_matrix(45, WIDTH / HEIGHT, 0.1, 100)
-chibi_pos = pyrr.matrix44.create_from_translation(pyrr.Vector3([6, 4, 0]))
+cube_pos = pyrr.matrix44.create_from_translation(pyrr.Vector3([6, 4, 0]))
 monkey_pos = pyrr.matrix44.create_from_translation(pyrr.Vector3([-4, 4, -4]))
 floor_pos = pyrr.matrix44.create_from_translation(pyrr.Vector3([0, 0, 0]))
-
-# camera, eye, target, up
-#view = pyrr.matrix44.create_look_at(pyrr.Vector3([0, 0, 8]), pyrr.Vector3([0, 0, 0]), pyrr.Vector3([0, 1, 0]))
 
 model_loc = glGetUniformLocation(shader, "model")
 proj_loc = glGetUniformLocation(shader, "projection")
 view_loc = glGetUniformLocation(shader, "view")
 
 glUniformMatrix4fv(proj_loc, 1, GL_FALSE, projection)
-#glUniformMatrix4fv(view_loc, 1, GL_FALSE, view)
+
+running = True
 
 # the main application loop
-while not glfw.window_should_close(window):
-    glfw.poll_events()
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            running = False
+
+        if event.type == pygame.VIDEORESIZE:
+            glViewport(0, 0, event.w, event.h)
+            projection = pyrr.matrix44.create_perspective_projection_matrix(45, event.w / event.h, 0.1, 100)
+            glUniformMatrix4fv(proj_loc, 1, GL_FALSE, projection)
+
+        keys_pressed = pygame.key.get_pressed()
+        if keys_pressed[pygame.K_a]:
+            cam.process_keyboard("LEFT", 0.08)
+        if keys_pressed[pygame.K_d]:
+            cam.process_keyboard("RIGHT", 0.08)
+        if keys_pressed[pygame.K_w]:
+            cam.process_keyboard("FORWARD", 0.08)
+        if keys_pressed[pygame.K_s]:
+            cam.process_keyboard("BACKWARD", 0.08)
+
+    mouse_pos = pygame.mouse.get_pos()
+    mouse_look(mouse_pos[0], mouse_pos[1])
+
+    # to been able to look around 360 degrees still not perfect
+    if mouse_pos[0] <= 0:
+        pygame.mouse.set_pos((1279, mouse_pos[1]))
+    elif mouse_pos[0] >= 1279:
+        pygame.mouse.set_pos(0, mouse_pos[1])
+
+    ct = pygame.time.get_ticks() / 1000
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         
     view = cam.get_view_matrix()
     glUniformMatrix4fv(view_loc, 1, GL_FALSE, view)
 
-    rot_y = pyrr.Matrix44.from_y_rotation(0.8 * glfw.get_time())    
-    model = pyrr.matrix44.multiply(rot_y, chibi_pos)
+    rot_y = pyrr.Matrix44.from_y_rotation(0.8 * ct)
+    model = pyrr.matrix44.multiply(rot_y, cube_pos)
 
-        # draw the cube
+    # draw the cube
     glBindVertexArray(VAO[0])
     glBindTexture(GL_TEXTURE_2D, textures[0])
     glUniformMatrix4fv(model_loc, 1, GL_FALSE, model)
-    glDrawArrays(GL_TRIANGLES, 0, len(monkey_indices))
+    # glDrawArrays(GL_TRIANGLES, 0, len(cube_indices))
+    glDrawElements(GL_TRIANGLES, len(cube_indices), GL_UNSIGNED_INT, None)
 
     # draw the monkey
     glBindVertexArray(VAO[1])
@@ -224,7 +223,7 @@ while not glfw.window_should_close(window):
     glUniformMatrix4fv(model_loc, 1, GL_FALSE, floor_pos)
     glDrawArrays(GL_TRIANGLES, 0, len(floor_indices))
 
-    glfw.swap_buffers(window)
+    pygame.display.flip()
 
 # terminate glfw, free up allocated resources
-glfw.terminate()
+pygame.quit()

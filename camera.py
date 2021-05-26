@@ -43,7 +43,7 @@ class Camera:
 
 
     # Camera method for the WASD movement
-    def process_keyboard(self, direction, velocity)    :
+    def process_keyboard(self, direction, velocity):
         if direction == "FORWARD":
             self.camera_pos += self.camera_front * velocity
         if direction == "BACKWARD":
@@ -51,4 +51,4 @@ class Camera:
         if direction == "LEFT":
             self.camera_pos -= self.camera_right * velocity
         if direction == "RIGHT":
-            self.camera_right += self.camera_right * velocity
+            self.camera_pos += self.camera_right * velocity
